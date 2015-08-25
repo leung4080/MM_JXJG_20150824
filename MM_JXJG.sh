@@ -27,6 +27,7 @@ cd $SCRIPT_PATH;
 
 
 BackupFileList=/tmp/backupfile_"$DATE".list
+CHMOD_BackupList=/tmp/Chmod_backup_"$DATE".list
 
 
 #===============================================================================
@@ -37,7 +38,7 @@ RUN_LINUX()
 {
   #echo -n linux
   linux_sub_UMASK;    
-  linux_sub_CHMOD;
+  #linux_sub_CHMOD;
   linux_sub_syslogng;
   linux_sub_syslog;
   linux_sub_rsyslog;
@@ -82,7 +83,7 @@ linux_sub_CHMOD(){
   chmodFile "/etc/inetd.conf" "750" on;
 
   #chmod 750 /tmp
-  chmodFile "/tmp" "750" on;
+  chmodFile "/tmp" "1750" on;
 
   #chmod 750 /etc/shadow
   chmodFile "/etc/shadow" "750" on;
@@ -127,7 +128,7 @@ linux_sub_CHMOD(){
   chmodFile "/etc/ssh/ssh_host_rsa_key" "700" on;
 
   #chmod 750 /etc/
-  chmodFile "/etc/" "750" on;
+  chmodFile "/etc/" "755" on;
 
 }
 linux_sub_syslogng(){
@@ -136,23 +137,25 @@ linux_sub_syslogng(){
 #可以将此处10.10.10.10替换为实际的IP
   Log_server="10.101.1.61"
   Filename="/etc/syslog-ng/syslog-ng.conf"
-  sub_switch="off"
+  sub_switch="on"
 
-  if [ $sub_switch = "on" ] ; then
-    if [ -e $Filename] ; then
-      Backup_file $Filename
-    fi
-    echo "destination logserver { udp("$Log_server" port(514)); };" >> $Filename;
-    echo "log { source(src); destination(logserver); };" >> $Filename;
-    echo "[change]$Filename#"
-  else
-    tmp=`grep "destination logserver" $Filename 2>/dev/null`
+  tmp=`grep "destination logserver" $Filename 2>/dev/null`
     if [ -n "$tmp" ] ; then
       echo "[ok] $Filename #"
     else
-      echo "[Not] $Filename #"
+      if [ $sub_switch = "on" ] ; then
+        if [ -e $Filename ] ; then
+          Backup_file $Filename
+        fi
+          mkdir `dirname $Filename`
+          touch $Filename;
+          echo "destination logserver { udp("$Log_server" port(514)); };" >> $Filename
+          echo "log { source(src); destination(logserver); };" >> $Filename
+          echo "[change]$Filename#"   
+      else
+            echo "[Not] $Filename #"
+      fi
     fi
-  fi
 }
 
 linux_sub_syslog(){
@@ -163,18 +166,18 @@ linux_sub_syslog(){
 #可以将此处192.168.0.1替换为实际的IP或域名(域名格式形如：www.nsfocus.com,根据具体情况填写)。
   Log_server="10.101.1.61"
   Filename="/etc/syslog.conf"
-  sub_switch="off"
+  sub_switch="on"
 
-  if [ $sub_switch = "on" ] ; then
-    if [ -e $Filename] ; then
-      Backup_file $Filename
-    fi
-    echo "*.*                    @"$Log_server >> $Filename;
-    echo "[change]$Filename#"
-  else
-    tmp=`grep "@$Log_server" $Filename 2>/dev/null`
-    if [ -n "$tmp" ] ; then
+  tmp=`grep "@$Log_server" $Filename 2>/dev/null`
+  if [ -n "$tmp" ] ; then
       echo "[ok] $Filename #"
+  else
+    if [ $sub_switch = "on" ] ; then
+      if [ -e $Filename ] ; then
+        Backup_file $Filename
+      fi
+      echo "*.*                    @"$Log_server >> $Filename;
+      echo "[change]$Filename#"
     else
       echo "[Not] $Filename #"
     fi
@@ -188,38 +191,39 @@ linux_sub_rsyslog(){
 #可以将此处192.168.0.1替换为实际的IP或域名(域名格式形如：www.nsfocus.com,根据具体情况填写)。
   Log_server="10.101.1.61"
   Filename="/etc/rsyslog.conf"
-  sub_switch="off"
+  sub_switch="on"
 
-  if [ $sub_switch = "on" ] ; then
-    if [ -e $Filename] ; then
-      Backup_file $Filename
-    fi
-    echo "*.*                    @"$Log_server >> $Filename;
-    echo "[change]$Filename#"
-  else
-    tmp=`grep "@$Log_server" $Filename 2>/dev/null`
-    if [ -n "$tmp" ] ; then
+  tmp=`grep "@$Log_server" $Filename 2>/dev/null`
+  if [ -n "$tmp" ] ; then
       echo "[ok] $Filename #"
+  else
+    if [ $sub_switch = "on" ] ; then
+      if [ -e $Filename ] ; then
+        Backup_file $Filename
+      fi
+      echo "*.*                    @"$Log_server >> $Filename;
+      echo "[change]$Filename#"
     else
-      echo "[Not] $Filename #"
+     echo "[Not] $Filename #"
     fi
   fi
 }
 linux_sub_setTMOUT(){
 #以root账户执行，vi /etc/profile,增加 export TMOUT=180(单位：秒，可根据具体情况设定超时退出时间，要求不小于180秒),注销用户，再用该用户登录激活该功能
   Filename="/etc/profile"
-  sub_switch="off"
+  sub_switch="on"
 
-  if [ $sub_switch = "on" ] ; then
-    if [ -e $Filename] ; then
-      Backup_file $Filename
-    fi
-    echo "export TMOUT=180" >> $Filename;
-    echo "[change]$Filename#"
-  else
-    tmp=`grep "TMOUT=180" $Filename 2>/dev/null`
-    if [ -n "$tmp" ] ; then
+  tmp=`grep "TMOUT=180" $Filename 2>/dev/null`
+  if [ -n "$tmp" ] ; then
       echo "[ok] $Filename #"
+  else
+  
+    if [ $sub_switch = "on" ] ; then
+      if [ -e $Filename ] ; then
+      Backup_file $Filename
+      fi
+      echo "export TMOUT=180" >> $Filename;
+      echo "[change]$Filename#"
     else
       echo "[Not] $Filename #"
     fi
@@ -235,15 +239,15 @@ linux_sub_pam(){
 #参数说明：
 #deny        #连续认证失败次数超过的次数
 #unlock_time  #锁定的时间，单位为秒
-
-
-
-
   Filename="/etc/pam.d/system-auth"
-  sub_switch="off"
-
+  sub_switch="on"
+ 
+  tmp=`grep "unlock_time=300" $Filename 2>/dev/null`
+    if [ -n "$tmp" ] ; then
+      echo "[ok] $Filename #"
+    else
   if [ $sub_switch = "on" ] ; then
-    if [ -e $Filename] ; then
+    if [ -e $Filename ] ; then
       Backup_file $Filename
     fi
     echo "#auth  required  pam_tally.so deny=10 unlock_time=300 no_lock_time" >> $Filename;
@@ -251,74 +255,79 @@ linux_sub_pam(){
     echo "password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1" >> $Filename
     echo "[change]$Filename#"
   else
-    tmp=`grep "unlock_time=300" $Filename 2>/dev/null`
-    if [ -n "$tmp" ] ; then
-      echo "[ok] $Filename #"
-    else
+   
       echo "[Not] $Filename #"
     fi
   fi
 
-#Redhat系统：修改/etc/pam.d/system-auth文件,
+  #Redhat系统：修改/etc/pam.d/system-auth文件,
 #在ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 选3种，追加到password  requisite pam_cracklib.so后面，添加到配置文件中。
 #例如：password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1
 #注：ucredit：大写字母个数；lcredit：小写字母个数；dcredit：数字个数；ocredit：特殊字符个数
 
   Filename="/etc/pam.d/system-auth"
-  sub_switch="off"
-
-  if [ $sub_switch = "on" ] ; then
-    if [ -e $Filename] ; then
-      Backup_file $Filename
-    fi
-    echo "password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1" >> $Filename
-    echo "[change]$Filename#"
-  else
-    tmp=`egrep "pam_cracklib.so.*credit" $Filename 2>/dev/null`
+  sub_switch="on"
+ 
+  tmp=`egrep "pam_cracklib.so.*credit" $Filename 2>/dev/null`
     if [ -n "$tmp" ] ; then
       echo "[ok] $Filename #"
     else
+  if [ "$sub_switch" = "on" ] ; then
+    if [ -e $Filename ] ; then
+      Backup_file $Filename
+    fi
+    echo "password  requisite pam_cracklib.so ucredit=-1 lcredit=-1 dcredit=-1" >> $Filename;
+      echo "[change]$Filename#";
+  else
+   
       echo "[Not] $Filename #"
     fi
+  fi
 
+    
   #编辑 /etc/pam.d/login文件，配置auth required pam_securetty.so
   Filename="/etc/pam.d/login"
-  sub_switch="off"
+  sub_switch="on"
 
-  if [ $sub_switch = "on" ] ; then
-    if [ -e $Filename] ; then
+ tmp=`grep "pam_securetty.so" $Filename 2>/dev/null`
+    if [ -n "$tmp" ] ; then
+      echo "[ok] $Filename #"
+    else
+    if [ $sub_switch = "on" ] ; then
+    if [ -e $Filename ] ; then
       Backup_file $Filename
     fi
     echo "#auth required pam_securetty.so" >> $Filename;
     echo "[change]$Filename#"
   else
-    tmp=`grep "pam_securetty.so" $Filename 2>/dev/null`
-    if [ -n "$tmp" ] ; then
-      echo "[ok] $Filename #"
-    else
+   
       echo "[Not] $Filename #"
     fi
   fi
 
-
 }
+
 
 linux_sub_PassMinLen(){
 #在文件/etc/login.defs中设置 PASS_MIN_LEN 不小于标准值
   Filename="/etc/login.defs"
-  sub_switch="off"
+  sub_switch="on"
   
   PML=`egrep '^PASS_MIN_LEN' $Filename|awk '{print $NF}' 2>/dev/null`
-  if [ "$PML" -ge  12 ]  ; then
+  if [ "$PML" -ge  "12" ]  ; then
     echo "[ok]$Filename PASS_MIN_LEN $PML#"
     return 0;
   fi
 
   if [ $sub_switch = "on" ] ; then
-    if [ -e $Filename] ; then
+    if [ -e $Filename ] ; then
       Backup_file $Filename
     fi
-      sed -i 's/^\(PASS_MIN_LEN\).*/#&\n\1\t12/' $Filename;
+     if [ -z "$PML"  ]  ; then
+        echo "PASS_MIN_LEN   12" >> $Filename;
+      else
+        sed -i 's/^\(PASS_MIN_LEN\).*/#&\n\1\t12/' $Filename;
+      fi
       echo "[change]$Filename PASS_MIN_LEN";
   else
       echo "[Not]$Filename PASS_MIN_LEN $PML" 
@@ -332,19 +341,22 @@ linux_sub_sshdconfig(){
 #修改/etc/ssh/sshd_config文件,配置PermitRootLogin no。
 
   Filename="/etc/ssh/sshd_config"
-  sub_switch="off"
+  sub_switch="on"
 
-   PRL=`awk '$1~/^PermitRootLogin/{print $2}' $Filename`;
+   PRL=`awk '$1~/^PermitRootLogin/{print $2}' $Filename|tail -1`;
   if [ "$PRL" = "no" ] ; then
     echo "[ok]$Filename PermitRootLogin $PRL#"
 
   else
     if [ $sub_switch = "on" ] ; then
-      if [ -e $Filename] ; then
+      if [ -e $Filename ] ; then
         Backup_file $Filename
       fi
-
-      sed -i 's/^\(PermitRootLogin\).*/#&\n\1\tno/' $Filename;
+      if [ -z "$PRL" ] ; then
+        echo "PermitRootLogin no"  >> $Filename;
+      else
+        sed -i 's/^\(PermitRootLogin\).*/#&\n\1\tno/' $Filename;
+      fi
       echo "[change]$Filename PermitRootLogin";
     else
       echo "[Not]$Filename PermitRootLogin $PML" 
@@ -353,19 +365,22 @@ linux_sub_sshdconfig(){
 
 #Protocol 2
   Filename="/etc/ssh/sshd_config"
-  sub_switch="off"
+  sub_switch="on"
 
-   PRL=`awk '$1~/^Protocol/{print $2}' $Filename|head -1 `;
+   PRL=`awk '$1~/^Protocol/{print $2}' $Filename|tail -1 `;
   if [ "$PRL" = "2" ] ; then
     echo "[ok]$Filename Protocol $PRL#"
 
   else
     if [ $sub_switch = "on" ] ; then
-      if [ -e $Filename] ; then
+      if [ -e $Filename ] ; then
         Backup_file $Filename
       fi
-
-      sed -i 's/^\(Protocol\).*/#&\n\1\t2/' $Filename;
+      if [ -z "$PRL" ] ; then
+        echo "Protocol  2"  >> $Filename;
+      else
+        sed -i 's/^\(Protocol\).*/#&\n\1\t2/' $Filename;
+      fi
       echo "[change]$Filename Protocol";
     else
       echo "[Not]$Filename Protocol $PML" 
@@ -378,7 +393,7 @@ linux_sub_sshdconfig(){
 linux_sub_limit(){
 #在文件/etc/security/limits.conf中配置* soft core 0
   Filename="/etc/security/limits.conf"
-  sub_switch="off"
+  sub_switch="on"
 
    PRL=`awk '$0~/^*.*soft.*core/' $Filename|wc -l`;
   if [ $PRL -gt 0 ] ; then
@@ -386,7 +401,7 @@ linux_sub_limit(){
 
   else
     if [ $sub_switch = "on" ] ; then
-      if [ -e $Filename] ; then
+      if [ -e $Filename ] ; then
         Backup_file $Filename
       fi
 
@@ -400,7 +415,7 @@ linux_sub_limit(){
 
 #在文件/etc/security/limits.conf中配置* hard core 0
   Filename="/etc/security/limits.conf"
-  sub_switch="off"
+  sub_switch="on"
 
    PRL=`awk '$0~/^*.*hard.*core/' $Filename|wc -l`;
   if [ $PRL -gt 0 ] ; then
@@ -408,7 +423,7 @@ linux_sub_limit(){
 
   else
     if [ $sub_switch = "on" ] ; then
-      if [ -e $Filename] ; then
+      if [ -e $Filename ] ; then
         Backup_file $Filename
       fi
 
@@ -427,7 +442,7 @@ linux_sub_findsuid(){
 #如果存在输出结果，则使用chmod 755 文件名 命令修改文件的权限。
 #例如：chmod a-s /usr/bin/chage
   Results=`LANG=C find /usr/bin/chage /usr/bin/gpasswd /usr/bin/wall /usr/bin/chfn /usr/bin/chsh /usr/bin/newgrp /usr/bin/write /usr/sbin/usernetctl /usr/sbin/traceroute /bin/mount /bin/umount /bin/ping /sbin/netreport -type f -perm +6000 2>/dev/null`
-  sub_switch="off"
+  sub_switch="on"
   
   if [ -n "$Results" ] ; then
     
@@ -451,14 +466,14 @@ linux_sub_distelnet(){
 #在/etc/services文件中，注释掉 telnet        23/tcp 一行(如不生效重启telnetd服务或xinetd服务或系统，例如，Red Hat 上重启xinetd：service xinetd restart，根据实际情况操作)
   
   Filename="/etc/services"
-  sub_switch="off"
+  sub_switch="on"
 
    tmp=`egrep "^telnet.*23\/tcp" $Filename 2>/dev/null`
   if [ -z "$tmp" ] ; then
       echo "[ok] $Filename #"
   else
     if [ $sub_switch = "on" ] ; then
-      if [ -e $Filename] ; then
+      if [ -e $Filename ] ; then
         Backup_file $Filename
       fi
        sed -i 's/^telnet.*23.*tcp/#&/g' $Filename;
@@ -483,12 +498,12 @@ linux_sub_disxinetd(){
 #补充操作说明
 #关闭下列不必要的基本网络服务。
 #chargen-dgram daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram daytime-dgram   echo-dgram gssftp  rsync  time-stream
-    sub_switch="off"
+    sub_switch="on"
      if [ $sub_switch = "on" ] ; then
      
-       for i in "chargen-dgram daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram daytime-dgram   echo-dgram gssftp  rsync  time-stream" ; do
+       for i in chargen-dgram daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram daytime-dgram   echo-dgram gssftp  rsync  time-stream ; do
        
-       chkconfig $i off 
+       chkconfig $i off  2>/dev/null
        
        
        done
@@ -538,7 +553,7 @@ setUMASK(){
   else
     if [ "$3" = "on" ] ; then
         Backup_file $Filename;
-        echo " umask $tmp_UMASK" >> $Filename;
+        echo " umask $tmp_UMASK" >> $Filename 
         echo "[change]echo umask $tmp_UMASK >> $Filename#"
     else
         echo "[Not]$Filename#"
@@ -565,6 +580,7 @@ chmodFile(){
     fi
     
     if [ "$3" = "on" ] ; then
+      echo "chmod $File_Permission $Filename" >> $CHMOD_BackupList; 
       chmod $setToPermission $Filename;
       echo "[change]chmod $setToPermission $Filename#"
     else
@@ -580,9 +596,9 @@ chmodFile(){
 Restore_file(){
   
   if [ -s $BackupFileList ] ; then
-    sort $BackupFileList |uniq |sort |awk 'print "cp -f $2 $1"' > /tmp/run_restore.sh
+    sort $BackupFileList |uniq |sort |awk '{print "cp -f "$2" "$1}' > /tmp/run_restore.sh
   fi
-
+    sh /tmp/run_restore.sh
 
 }
 
