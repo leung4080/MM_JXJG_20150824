@@ -488,7 +488,7 @@ linux_sub_disxinetd(){
      
        for i in "chargen-dgram daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram daytime-dgram   echo-dgram gssftp  rsync  time-stream" ; do
        
-       chkconfig $i on
+       chkconfig $i off 
        
        
        done
