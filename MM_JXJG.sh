@@ -62,6 +62,7 @@ RUN_LINUX()
   linux_sub_issue;
   linux_sub_findrhost;
   linux_sub_logfile_chmod;
+  linux_sub_chattr;
 
   create_Restore_file;
 
@@ -74,21 +75,21 @@ RUN_HPUX()
 }
 
 linux_sub_UMASK(){
-  #在文件/etc/csh.cshrc中设置 umask 027或UMASK 027
+  #在文件/etc/csh.cshrc中设置 umask 077或UMASK 077
   Filename="/etc/csh.cshrc"
-  setUMASK $Filename "027" on 
+  setUMASK $Filename "077" on 
 
-  #检查文件/etc/bashrc（或/etc/bash.bashrc）中设置 umask 027或UMASK 027
+  #检查文件/etc/bashrc（或/etc/bash.bashrc）中设置 umask 077或UMASK 077
   Filename="/etc/bashrc"
-  setUMASK $Filename "027" on;
+  setUMASK $Filename "077" on;
 
-  ##在文件/etc/csh.login中设置 umask 027或UMASK 027
+  ##在文件/etc/csh.login中设置 umask 077或UMASK 077
   Filename="/etc/csh.login"
-  setUMASK $Filename "027" on ;
+  setUMASK $Filename "077" on ;
   
-  ##在文件/etc/profile中设置umask 027或UMASK 027
+  ##在文件/etc/profile中设置umask 077或UMASK 077
   Filename="/etc/profile"
-  setUMASK $Filename "027" on ;
+  setUMASK $Filename "077" on ;
 
   #设置默认权限：vi /etc/login.defs，
   #在末尾增加umask 027或UMASK  027，将缺省访问权限设置为750。
@@ -125,7 +126,7 @@ linux_sub_CHMOD(){
   chmodFile "/etc/rc6.d/" "750" on;
 
   #chmod 750 /etc/services
-  chmodFile "/etc/services" "750" ;
+  chmodFile "/etc/services" "644" on ;
 
   #chmod 750 /etc/rc.d/init.d/
   chmodFile "/etc/rc.d/init.d/" "750" on;
@@ -655,10 +656,10 @@ linux_sub_disxinetd(){
 ## /etc/init.d/sshd stop #关闭正在运行的sshd服务
 #补充操作说明
 #关闭下列不必要的基本网络服务。
-#chargen-dgram daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram daytime-dgram   echo-dgram gssftp  rsync  time-stream
+#chargen-dgram daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram daytime-dgram   echo-dgram gssftp  rsync  time-stream sendmail ypbind nfs nfslock echo echo-udp ntalk ident lpd printer echo-udp bootps time time-udp
     sub_switch="on"
      if [ $sub_switch = "on" ] ; then
-      ARGS="chargen-dgram daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram daytime-dgram   echo-dgram gssftp  rsync  time-stream sendmail ldp discard discard-udp bootps ypbind time time-udp" 
+      ARGS="chargen-dgram daytime-stream echo-streamklogin  tcpmux-server chargen-stream  discard-dgram   eklogin  krb5-telnet  tftp cvs  discard-stream  ekrb5-telnet  kshell  time-dgram daytime-dgram   echo-dgram gssftp  rsync  time-stream sendmail ldp discard discard-udp bootps ypbind time time-udp sendmail ypbind nfs nfslock echo echo-udp ntalk ident lpd printer echo-udp " 
        for i in $ARGS ; do
        
        chkconfig $i off  2>/dev/null
@@ -722,6 +723,26 @@ linux_sub_profile(){
       echo "[Not]$Filename HISTSIZE $PML" 
     fi
   fi
+  
+  #编辑文件/etc/profile，配置HISTFILESIZE=5"
+  PRL=`awk -F"=" '$1~/^HISTFILESIZE/{print $2}' $Filename|tail -1`;
+  if [ "$PRL" = "5" ] ; then
+    echo "[OK]$Filename HISTFILESIZE $PRL#"
+
+  else
+    if [ $sub_switch = "on" ] ; then
+        Backup_file $Filename
+      if [ -z "$PRL" ] ; then
+        echo "HISTFILESIZE=5"  >> $Filename;
+      else
+        sed -i 's/^\(HISTFILESIZE\).*/#&\n\1=5/' $Filename;
+      fi
+      echo "[Fix]$Filename HISTFILESIZE";
+    else
+      echo "[Not]$Filename HISTFILESIZE $PML" 
+    fi
+  fi
+
 }
 
 linux_sub_userlock(){
@@ -1193,6 +1214,31 @@ done
 
 }
 
+linux_sub_chattr(){
+# "执行chattr +i /etc/gshadow
+# 如果不支持chattr,编辑/etc/fstab
+# 在相应的reiserfs系统的选项中添加""user_xattr,attrs""这两个选项，然后重启主机。"
+# "执行chattr +i /etc/shadow
+# 如果不支持chattr,编辑/etc/fstab
+# 在相应的reiserfs系统的选项中添加""user_xattr,attrs""这两个选项，然后重启主机。"
+# "执行chattr +i /etc/group
+# 如果不支持chattr,编辑/etc/fstab
+# 在相应的reiserfs系统的选项中添加""user_xattr,attrs""这两个选项，然后重启主机。"
+# "执行chattr +i /etc/passwd
+# 如果不支持chattr,编辑/etc/fstab
+# 在相应的reiserfs系统的选项中添加""user_xattr,attrs""这两个选项，然后重启主机。"
+# 
+  sub_switch="on"
+
+	setFileAttr "/etc/gshadow" "i" $sub_switch;
+	setFileAttr "/etc/shadow" "i" $sub_switch;
+	setFileAttr "/etc/passwd" "i" $sub_switch;
+	setFileAttr "/etc/group" "i" $sub_switch;
+
+}
+
+
+##################  HPUX   ####################################################
 
 hpux_sub_security(){
   #在 /etc/default/security 文件设置,MIN_PASSWORD_LENGTH = 阀值
@@ -1376,6 +1422,35 @@ setSysctl(){
 
 }
 
+setFileAttr(){
+  if [ $# -lt 2 ] ; then
+    return 0;
+  fi
+  Filename=$1
+  setToAttr=$2
+  
+  
+  if [ -e $Filename ] ; then
+    File_Attr=`LANG=C lsattr $Filename |grep $2 2>/dev/null`
+    if [ -n "$File_Attr" ] ; then
+      echo "[OK]"$Filename" "$File_Attr"#" ;
+      return 0;
+    fi
+    
+    if [ "$3" = "on" ] ; then
+      #echo "chattr +i  $File_Permission $Filename" >> $CHMOD_BackupList; 
+      chattr  +$setToAttr $Filename;
+      echo "[Fix]chmod $setToPermission $Filename#"
+    else
+      echo "[Not]"$Filename" "$File_Attr"#"
+    fi
+    
+  else
+    echo "[ERR!]$Filename : No such file or directory"
+    return 0;
+  fi	
+
+}
 
 
 
